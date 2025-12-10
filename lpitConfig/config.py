@@ -1,12 +1,48 @@
 
+import copy
 import os
 from pathlib import Path
 import sys
+import traceback
 import yaml
 
 def die(msg) :
   print(msg)
   sys.exit(1)
+
+def mergeConfig(config, newConfig, thePath) :
+  """ This is a generic Python merge. It is a *deep* merge and handles
+  recursive dictionary structures """
+
+  # check to ensure both the yamlData and newYamlData are consistent.
+  if type(config) is None :
+    print("ERROR(mergeConfig): config data should NEVER be None ")
+    print(f"ERROR(megeConfig): Stopped merge at {thePath}")
+    return
+
+  if type(config) != type(newConfig) :  # noqa
+    print(f"ERROR(mergeConfig): Incompatible types {type(config)} and {type(newConfig)} while trying to merge config data at {thePath}")  # noqa
+    print(f"ERROR(mergeConfig): Stopped merge at {thePath}")
+    return
+
+  # perform the merge at the same time expanding any '~' and '$baseDir' in
+  # paths (strings).
+  if type(newConfig) is dict :
+    for key, value in newConfig.items() :
+      if isinstance(value, str) :
+        if value.startswith('~') :
+          value = os.path.expanduser(value)
+        config[key] = value
+      elif isinstance(value, dict) :
+        if key not in config :
+          config[key] = {}
+        mergeConfig(config[key], value, thePath + '.' + key)
+      else :
+        config[key] = copy.deepcopy(value)
+  else :
+    print("ERROR(mergeConfig): Config MUST be a dictionary.")
+    print(f"ERROR(mergeConfig): Stopped merge at {thePath}")
+    return
 
 ########################################################################
 # ArgParse helper
@@ -14,8 +50,8 @@ def die(msg) :
 def addConfigurationArgs(parser) :
   parser.add_argument(
     '-c', '--config',
-    help="The path to the user configuration file",
-    default=os.path.expanduser('~/.config/lpitPublisher/config.yaml')
+    help="The path to the user configuration directory",
+    default=os.path.expanduser('~/.config/lpit')
   )
   parser.add_argument(
     '-v', '--verbose',
@@ -48,7 +84,7 @@ class LpitConfig(object) :
     print("-------------------------------------------------")
 
   def addCacheDirs(self) :
-    cachePath = Path('~/.cache/lpitPublisher')
+    cachePath = Path('~/.cache/lpit')
     if 'cacheDir' in self.config :
       cachePath = Path(self.config['cacheDir'])
     cachePath = cachePath.expanduser()
@@ -95,33 +131,36 @@ class LpitConfig(object) :
       if not aDirPath.exists() :
         aDirPath.mkdir(parents=True, exist_ok=True)
 
-  def loadConfig(self, args, verbose=False) :
-    configPath = Path(args['config']).expanduser()
+  def initConfigFromArgs(self, args) :
+    self.configPath = Path(args['config']).expanduser()
 
-    if not configPath.parent.exists() :
-      configPath.parent.mkdir(parents=True, exist_ok=True)
+    if not self.configPath.parent.exists() :
+      self.configPath.parent.mkdir(parents=True, exist_ok=True)
 
-    self.config = yaml.safe_load(configPath.read_text())
-    if not self.config :
-      self.config = {}
+    self.config = {}
+
+  def mergeConfigFrom(self, aConfigFileName) :
+    try :
+      mergeConfigPath = self.configPath / aConfigFileName
+      newConfig = yaml.safe_load(mergeConfigPath.read_text())
+      if isinstance(newConfig, dict) and newConfig :
+        mergeConfig(self.config, newConfig, '')
+    except Exception as err :
+      print(f"Could not merge configuration from {aConfigFileName} in {self.configPath}")  # noqa
+      print(repr(err))
+      print(traceback.format_exc())
+
+  def finishedLoading(self, args, verbose=False) :
+    self.addCacheDirs()
 
     for aKey, aValue in args.items() :
       if aValue : self.config[aKey] = aValue
 
+    if 'projects' not in self.config :
+      self.config['projects'] = {}
+
     if 'verbose' not in self.config :
       self.config['verbose'] = verbose
-
-    if 'monitor' not in self.config :
-      self.config['monitor'] = ['*.typ' ]
-
-    if 'formats' not in self.config :
-      self.config['formats'] = [ 'metadata', 'html', 'svg', 'pdf' ]
-
-    if 'webSiteName' not in self.config :
-      self.config['webSiteName'] = 'LPiT Documents'
-
-    self.checkDirs()
-    self.addCacheDirs()
 
     if self.config['verbose'] : self.print()
 

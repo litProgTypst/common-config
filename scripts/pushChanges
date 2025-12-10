@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# This bash script pushes this live repo to the various tools the use it.
+# It is used during development stage to ensure recent un-commited changes
+# appear in the related tools.
+
+changesFile=~/.config/lpit/configProjects
+
+pushChanges() {
+  # objective: $1/.venv/lib/python3.14/site-packages/lpitConfig
+  thePath=$1/.venv/lib/python3.14/site-packages
+  echo Pushing changes to: $thePath
+  rm -rf $thePath/lpitConfig
+  cp -R lpitConfig $thePath
+}
+
+cat $changesFile | \
+  grep -v "^$" | \
+  while read aDir; do
+    case "$aDir" in \#*) continue ;; esac
+    pushChanges $aDir
+  done
+
