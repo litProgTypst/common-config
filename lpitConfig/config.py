@@ -6,6 +6,18 @@ import sys
 import traceback
 import yaml
 
+cacheDirs = [
+  'bib',
+  'html',
+  'markdown',
+  'pdf',
+  'svg',
+  'metaData',
+  'lpit',
+  'sha256sums',
+  'webSite',
+]
+
 def die(msg) :
   print(msg)
   sys.exit(1)
@@ -92,30 +104,13 @@ class LpitConfig(object) :
       cachePath.mkdir(parents=True, exist_ok=True)
     self.cacheDir = cachePath
     self.config['cacheDir'] = str(cachePath)
-    self.htmlCache     = cachePath / 'html'
-    if not self.htmlCache.exists() :
-      self.htmlCache.mkdir(parents=True, exist_ok=True)
-    self.markdownCache = cachePath / 'markdown'
-    if not self.markdownCache.exists() :
-      self.markdownCache.mkdir(parents=True, exist_ok=True)
-    self.pdfCache = cachePath / 'pdf'
-    if not self.pdfCache.exists() :
-      self.pdfCache.mkdir(parents=True, exist_ok=True)
-    self.svgCache = cachePath / 'svg'
-    if not self.svgCache.exists() :
-      self.svgCache.mkdir(parents=True, exist_ok=True)
-    self.metaDataCache = cachePath / 'metaData'
-    if not self.metaDataCache.exists() :
-      self.metaDataCache.mkdir(parents=True, exist_ok=True)
-    self.lpitCache = cachePath / 'lpit'
-    if not self.lpitCache.exists() :
-      self.lpitCache.mkdir(parents=True, exist_ok=True)
-    self.shaSumsCache = cachePath / 'sha256sums'
-    if not self.shaSumsCache.exists() :
-      self.shaSumsCache.mkdir(parents=True, exist_ok=True)
-    self.webSiteCache = cachePath / 'webSite'
-    if not self.webSiteCache.exists() :
-      self.webSiteCache.mkdir(parents=True, exist_ok=True)
+
+    for aDir in cacheDirs :
+      theAttr = aDir + 'Cache'
+      thePath = cachePath / aDir
+      self.__setattr__(theAttr, thePath)
+      if not thePath.exists() :
+        thePath.mkdir(parents=True, exist_ok=True)
 
   def checkDirs(self) :
     if 'documentDirs' not in self.config :
