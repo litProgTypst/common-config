@@ -146,13 +146,20 @@ class LpitConfig(object) :
       print(traceback.format_exc())
 
   def finishedLoading(self, args, verbose=False) :
+
+    if 'projects' not in self.config :
+      self.config['projects'] = {}
+
+    if args['project'] :
+      if args['project'] in self.config['projects'] :
+        projConfig = self.config['projects'][args['project']]
+        if 'config' in projConfig :
+          self.mergeConfigFrom(projConfig['config'])
+
     self.addCacheDirs()
 
     for aKey, aValue in args.items() :
       if aValue : self.config[aKey] = aValue
-
-    if 'projects' not in self.config :
-      self.config['projects'] = {}
 
     if 'verbose' not in self.config :
       self.config['verbose'] = verbose
